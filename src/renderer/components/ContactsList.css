@@ -1,0 +1,171 @@
+.contacts-list {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+}
+
+.contacts-header {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f9f9f9;
+}
+
+.contacts-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.contacts-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-import,
+.btn-export {
+  padding: 8px 16px;
+  border: 1px solid #667eea;
+  background-color: white;
+  color: #667eea;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-import:hover:not(:disabled),
+.btn-export:hover:not(:disabled) {
+  background-color: #667eea;
+  color: white;
+}
+
+.btn-import:disabled,
+.btn-export:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.contacts-table-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.contacts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+}
+
+.contacts-empty p {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+}
+
+.contacts-empty small {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.contacts-table thead {
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+}
+
+.contacts-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.contacts-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  color: #555;
+}
+
+.contacts-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-badge.status-pendente {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.status-enviado {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.status-erro {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-pendente {
+  background-color: #fffbf0;
+}
+
+.status-enviado {
+  background-color: #f0fef0;
+}
+
+.status-erro {
+  background-color: #fef0f0;
+}
+
+@media (max-width: 768px) {
+  .contacts-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .contacts-actions {
+    width: 100%;
+  }
+
+  .btn-import,
+  .btn-export {
+    flex: 1;
+  }
+
+  .contacts-table {
+    font-size: 12px;
+  }
+
+  .contacts-table th,
+  .contacts-table td {
+    padding: 8px;
+  }
+}

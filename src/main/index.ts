@@ -1,9 +1,10 @@
 import { app, BrowserWindow, Menu, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import path from 'path'
-import isDev from 'electron-is-dev'
 import { logger } from './services/LoggerService'
 import { ChromeDriverService } from './services/ChromeDriverService'
+
+const isDev = process.env.NODE_ENV === 'development'
 
 let mainWindow: BrowserWindow | null = null
 
