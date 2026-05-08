@@ -1,13 +1,10 @@
-import { PhoneValidationService } from '@main/services/PhoneValidationService'
-import { LoggerService } from '@main/services/LoggerService'
+import { PhoneValidationService } from '../../../src/main/services/PhoneValidationService'
 
 describe('PhoneValidationService', () => {
   let service: PhoneValidationService
-  let logger: LoggerService
 
   beforeEach(() => {
-    logger = new LoggerService('PhoneValidationService-Test')
-    service = new PhoneValidationService(logger)
+    service = new PhoneValidationService()
   })
 
   describe('validate', () => {

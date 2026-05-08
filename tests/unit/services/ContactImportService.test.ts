@@ -1,6 +1,6 @@
-import { ContactImportService } from '@main/services/ContactImportService'
-import { LoggerService } from '@main/services/LoggerService'
-import { IContact } from '@shared/interfaces'
+import { ContactImportService } from '../../../src/main/services/ContactImportService'
+import { LoggerService } from '../../../src/main/services/LoggerService'
+import { IContact } from '../../../src/shared/interfaces'
 import { promises as fs } from 'fs'
 import path from 'path'
 

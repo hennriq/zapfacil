@@ -1,4 +1,4 @@
-import { LoggerService } from '@main/services/LoggerService'
+import { LoggerService } from '../../../src/main/services/LoggerService'
 
 describe('LoggerService', () => {
   let logger: LoggerService

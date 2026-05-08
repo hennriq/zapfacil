@@ -1,4 +1,4 @@
-import { WebUtility } from '@shared/utils/WebUtility'
+import { WebUtility } from '../../../src/shared/utils/WebUtility'
 
 describe('WebUtility', () => {
   describe('encodeURLComponent', () => {

@@ -1,7 +1,7 @@
-import { WhatsAppAutomationService } from '@main/services/WhatsAppAutomationService'
-import { IChromeDriverManager, IContact } from '@shared/interfaces'
-import { LoggerService } from '@main/services/LoggerService'
-import { PhoneValidationService } from '@main/services/PhoneValidationService'
+import { WhatsAppAutomationService } from '../../../src/main/services/WhatsAppAutomationService'
+import { IChromeDriverManager, IContact } from '../../../src/shared/interfaces'
+import { LoggerService } from '../../../src/main/services/LoggerService'
+import { PhoneValidationService } from '../../../src/main/services/PhoneValidationService'
 
 describe('WhatsAppAutomationService', () => {
   let service: WhatsAppAutomationService
