@@ -1,11 +1,11 @@
-import { IChromeDriverManager, ILogger } from '@shared/interfaces'
-import { webdriver } from 'selenium-webdriver'
+import { IChromeDriverManager, ILogger } from '../../shared/interfaces'
 import { Builder, WebDriver, By, until } from 'selenium-webdriver'
-import { Options } from 'selenium-webdriver/chrome'
+import { Options, ServiceBuilder } from 'selenium-webdriver/chrome'
 import { LoggerService } from './LoggerService'
 import path from 'path'
 import os from 'os'
 import { promises as fs } from 'fs'
+import { ChromeUpdateService } from './ChromeUpdateService'
 
 /**
  * ChromeDriverService implementa IChromeDriverManager
@@ -36,6 +36,17 @@ export class ChromeDriverService implements IChromeDriverManager {
 
   async initialize(): Promise<void> {
     try {
+      if (await this.isSessionActive()) {
+        this.logger.info('ChromeDriver session already active')
+        return
+      }
+
+      if (this.driver) {
+        await this.stop().catch((error) => {
+          this.logger.warn('Failed to stop stale ChromeDriver session', error)
+        })
+      }
+
       this.logger.info('Initializing ChromeDriver...')
       
       // Obter caminho do user data
@@ -55,15 +66,21 @@ export class ChromeDriverService implements IChromeDriverManager {
       options.addArguments(
         `--user-data-dir=${userDataPath}`,
         '--profile-directory=ZapFacil',
-        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        '--disable-extensions',
+        '--disable-popup-blocking',
+        '--no-first-run',
+        '--no-default-browser-check'
       )
-      options.addArgument('--disable-extensions')
 
-      // Construir driver
-      this.driver = await new Builder()
+      const managedDriverPath = new ChromeUpdateService(this.logger).getDriverPath()
+      await fs.access(managedDriverPath)
+
+      const builder = new Builder()
         .forBrowser('chrome')
         .setChromeOptions(options)
-        .build()
+        .setChromeService(new ServiceBuilder(managedDriverPath))
+
+      this.driver = await builder.build()
 
       this.logger.info('ChromeDriver initialized successfully')
     } catch (error) {
@@ -73,7 +90,7 @@ export class ChromeDriverService implements IChromeDriverManager {
   }
 
   async start(): Promise<void> {
-    if (!this.driver) {
+    if (!(await this.isSessionActive())) {
       await this.initialize()
     }
     this.logger.info('ChromeDriver started')
@@ -141,5 +158,19 @@ export class ChromeDriverService implements IChromeDriverManager {
 
   getDriver(): WebDriver | null {
     return this.driver
+  }
+
+  async isSessionActive(): Promise<boolean> {
+    if (!this.driver) {
+      return false
+    }
+
+    try {
+      await this.driver.getWindowHandle()
+      return true
+    } catch {
+      this.driver = null
+      return false
+    }
   }
 }

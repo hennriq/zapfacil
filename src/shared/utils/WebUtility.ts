@@ -7,7 +7,9 @@ export class WebUtility {
    * Codifica string para uso em URL
    */
   static encodeURLComponent(text: string): string {
-    return encodeURIComponent(text)
+    return encodeURIComponent(text).replace(/[!'()*]/g, (char) =>
+      `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+    )
   }
 
   /**

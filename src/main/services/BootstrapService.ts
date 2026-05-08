@@ -1,4 +1,4 @@
-import { ILogger } from '@shared/interfaces'
+import { ILogger } from '../../shared/interfaces'
 import { LoggerService } from './LoggerService'
 import { ChromeDriverService } from './ChromeDriverService'
 import { WhatsAppAutomationService } from './WhatsAppAutomationService'
@@ -38,6 +38,11 @@ export class BootstrapService {
    */
   async initialize(): Promise<void> {
     try {
+      if (this.isInitialized && await this.chromeDriver.isSessionActive()) {
+        this.logger.info('Application already initialized')
+        return
+      }
+
       this.logger.info('Starting application initialization...')
 
       // 1. Verificar e atualizar ChromeDriver se necessário
@@ -46,6 +51,9 @@ export class BootstrapService {
       if (hasUpdate) {
         this.logger.info('Downloading ChromeDriver update...')
         await this.chromeUpdater.downloadLatestDriver()
+        this.logger.info('ChromeDriver successfully updated')
+      } else {
+        this.logger.info('ChromeDriver is up to date')
       }
 
       // 2. Inicializar ChromeDriver
@@ -60,7 +68,7 @@ export class BootstrapService {
       this.logger.info('Waiting for QR Code scan (2 minutes timeout)...')
       try {
         await this.whatsAppAutomation.waitForQRCodeScan(120000)
-      } catch (error) {
+      } catch {
         this.logger.warn('QR Code scan timeout - user may need to scan again')
       }
 
@@ -84,6 +92,14 @@ export class BootstrapService {
     } catch (error) {
       this.logger.error('Error during shutdown', error)
     }
+  }
+
+  async ensureAutomationWindow(): Promise<void> {
+    if (this.isInitialized && await this.chromeDriver.isSessionActive()) {
+      return
+    }
+
+    await this.initialize()
   }
 
   /**

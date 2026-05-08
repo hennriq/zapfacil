@@ -78,11 +78,11 @@ nvm use 18
 
 ---
 
-## Fase 4: Auto-Update Chrome
+## Fase 4: Auto-Update Chrome ✅
 
 ### Implementar
 1. **ChromeUpdateService** ✅ (já existe)
-2. **Background check** 
+2. **Background check** ✅
    ```typescript
    // main/index.ts
    setInterval(async () => {
@@ -93,7 +93,7 @@ nvm use 18
    }, 24 * 60 * 60 * 1000) // 24 horas
    ```
 
-3. **User notification**
+3. **User notification** ✅
    - Toast ao detectar update
    - Opção de instalar agora/depois
 

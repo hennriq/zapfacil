@@ -276,7 +276,7 @@ git commit -m "fix: Correct component rendering
    ```
 
 6. **Code Review**
-   - Espere feedback
+
    - Faça ajustes se necessário
    - Merge após aprovação!
 

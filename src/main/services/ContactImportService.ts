@@ -3,12 +3,11 @@ import {
   IContact,
   IValidationResult,
   ILogger,
-} from '@shared/interfaces'
-import { LoggerService } from './LoggerService'
-import { PhoneValidationService } from './PhoneValidationService'
-import { promises as fs } from 'fs'
-import { parse, stringify } from 'csv'
-import { v4 as uuidv4 } from 'uuid'
+} from '../../shared/interfaces';
+import { LoggerService } from './LoggerService';
+import { PhoneValidationService } from './PhoneValidationService';
+import { promises as fs } from 'fs';
+import { randomUUID } from 'crypto'
 
 /**
  * ContactImportService implementa IContactImporter
@@ -51,7 +50,9 @@ export class ContactImportService implements IContactImporter {
         const line = lines[i].trim()
         if (!line) continue
 
-        const [name, phone] = line.split(',').map((s) => s.trim())
+        const [name, phone] = line
+          .split(',')
+          .map((s) => s.trim().replace(/^"|"$/g, ''))
 
         if (name && phone) {
           if (this.phoneValidator.validate(phone)) {
@@ -138,3 +139,7 @@ export class ContactImportService implements IContactImporter {
     }
   }
 }
+function uuidv4(): string {
+  return randomUUID()
+}
+

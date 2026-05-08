@@ -4,11 +4,10 @@ import {
   ILogger,
   IContact,
   ISendResult,
-} from '@shared/interfaces'
+} from '../../shared/interfaces'
 import { LoggerService } from './LoggerService'
 import { PhoneValidationService } from './PhoneValidationService'
-import { v4 as uuidv4 } from 'uuid'
-import { WebUtility } from '@shared/utils/WebUtility'
+import { WebUtility } from '../../shared/utils/WebUtility'
 
 /**
  * WhatsAppAutomationService implementa IWhatsAppAutomation
@@ -21,6 +20,62 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
   private readonly logger: ILogger
   private readonly phoneValidator: PhoneValidationService
   private readonly whatsAppURL = 'https://web.whatsapp.com/'
+  private shouldCancelSending = false
+  private lastSendCanceled = false
+
+  // WhatsApp Web login QR code link
+  // Expected by TODO: data-testid="link-device-qr-code"
+  private readonly loginQrXpath = "//a[@data-testid='link-device-qr-code']"
+
+  private async isLoginQrVisible(): Promise<boolean> {
+    try {
+      const qrLink = await this.chromeDriver.findElement(this.loginQrXpath, 1500)
+
+      // In unit tests, `findElement` is mocked to return a generic object (ex.: { click: fn }).
+      // For real Selenium elements, we can rely on `isDisplayed()` to confirm visibility.
+      const maybeElement = qrLink as any
+      if (!maybeElement) return false
+
+      if (typeof maybeElement.isDisplayed === 'function') {
+        return await maybeElement.isDisplayed()
+      }
+
+      // If we can't verify visibility, consider it not visible to avoid false positives.
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  private async isChatListVisible(): Promise<boolean> {
+    try {
+      const chatList = await this.chromeDriver.findElement("//div[@data-testid='chat-list']", 1500)
+      const maybeElement = chatList as any
+      if (!maybeElement) return false
+
+      if (typeof maybeElement.isDisplayed === 'function') {
+        return await maybeElement.isDisplayed()
+      }
+
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  async getWhatsAppConnectionStatus(): Promise<'connected' | 'disconnected' | 'connecting'> {
+    // Requisito:
+    // - se o QR estiver sendo exibido (link-device-qr-code) => "disconnected"
+    // - se estiver aberto e logado => "connected" (chat-list visível)
+    // - caso não dê pra detectar => "connecting"
+    const qrVisible = await this.isLoginQrVisible()
+    if (qrVisible) return 'disconnected'
+
+    const chatListVisible = await this.isChatListVisible()
+    if (chatListVisible) return 'connected'
+
+    return 'connecting'
+  }
 
   constructor(
     chromeDriver: IChromeDriverManager,
@@ -30,6 +85,39 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
     this.chromeDriver = chromeDriver
     this.logger = logger || new LoggerService('WhatsAppAutomationService')
     this.phoneValidator = phoneValidator || new PhoneValidationService(this.logger)
+  }
+
+  private async findElementWithCancellation(
+    xpath: string,
+    overallTimeoutMs: number,
+    pollMs: number
+  ): Promise<any> {
+    const start = Date.now()
+
+    while (Date.now() - start < overallTimeoutMs) {
+      if (this.shouldCancelSending) {
+        throw new Error('CANCELLED')
+      }
+
+      try {
+        // Use a short timeout per poll to keep cancellation responsive.
+        return await this.chromeDriver.findElement(xpath, Math.min(pollMs, overallTimeoutMs))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        // Unit tests typically mock `findElement` to reject immediately (e.g. "Element not found").
+        // In that case, rethrow to avoid waiting for the whole overallTimeoutMs.
+        if (message.toLowerCase().includes('not found')) {
+          throw error
+        }
+
+        // Not found yet -> keep polling until timeout/cancel
+      }
+
+      await this.delay(pollMs)
+    }
+
+    throw new Error('Element not found')
   }
 
   /**
@@ -51,10 +139,17 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
 
       await this.chromeDriver.navigateTo(url)
 
-      // Aguardar botão de envio aparecer
-      const sendButton = await this.chromeDriver.findElement(
+      // If WhatsApp requires login, stop immediately
+      const qrVisible = await this.isLoginQrVisible()
+      if (qrVisible) {
+        throw new Error('QR_LOGIN_REQUIRED')
+      }
+
+      // Aguardar botão de envio aparecer (respeitando cancelamento)
+      const sendButton = await this.findElementWithCancellation(
         "//span[@data-testid='send']",
-        10000
+        10000,
+        300
       )
 
       if (sendButton) {
@@ -76,8 +171,26 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
     message: string
   ): Promise<ISendResult[]> {
     const results: ISendResult[] = []
+    this.shouldCancelSending = false
+    this.lastSendCanceled = false
 
     for (const contact of contacts) {
+      if (this.shouldCancelSending) {
+        this.lastSendCanceled = true
+        this.logger.info('Send operation canceled by user')
+        break
+      }
+
+      // If WhatsApp session expired / requires login, pause sending and ask user to login
+      const qrVisible = await this.isLoginQrVisible()
+      if (qrVisible) {
+        this.lastSendCanceled = true
+        this.shouldCancelSending = true
+        this.logger.warn?.('QR Code de login detectado. Pausando envio para login no Chrome.')
+        this.logger.info('QR Code de login detectado. Pausando envio para login no Chrome.')
+        break
+      }
+
       try {
         await this.sendMessage(contact.phone, message)
         results.push({
@@ -87,6 +200,23 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
         })
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)
+
+        // Cancel should stop immediately and not mark current contact as an error.
+        if (errorMessage === 'CANCELLED') {
+          this.lastSendCanceled = true
+          this.shouldCancelSending = true
+          this.logger.info('Send operation canceled by user (during element wait)')
+          break
+        }
+
+        // QR during send -> pause for login, not a per-contact error.
+        if (errorMessage === 'QR_LOGIN_REQUIRED') {
+          this.lastSendCanceled = true
+          this.shouldCancelSending = true
+          this.logger.info('QR login required detected during send. Pausing operation.')
+          break
+        }
+
         results.push({
           contactId: contact.id,
           success: false,
@@ -101,6 +231,15 @@ export class WhatsAppAutomationService implements IWhatsAppAutomation {
       `Send operation completed. Success: ${results.filter((r) => r.success).length}/${results.length}`
     )
     return results
+  }
+
+  cancelSending(): void {
+    this.shouldCancelSending = true
+    this.logger.info('Message sending cancellation requested')
+  }
+
+  wasLastSendCanceled(): boolean {
+    return this.lastSendCanceled
   }
 
   /**

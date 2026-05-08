@@ -15,16 +15,37 @@ process.env.DEBUG = 'false'
 jest.mock('electron', () => ({
   app: {
     on: jest.fn(),
-    quit: jest.fn(),
+    whenReady: jest.fn(() => Promise.resolve()),
+    quit: jest.fn(() => Promise.resolve()),
+    isQuit: jest.fn(() => false),
     getName: jest.fn(() => 'zapfacil'),
+    getPath: jest.fn(() => 'C:\\Users\\test\\AppData\\Roaming\\ZapFacil'),
   },
-  BrowserWindow: jest.fn(() => ({
-    loadURL: jest.fn(),
-    webContents: {
+  BrowserWindow: jest.fn(() => {
+    let currentUrl = process.env.DEV_SERVER_URL || 'file://test'
+    const webContents = {
       openDevTools: jest.fn(),
-    },
-    on: jest.fn(),
-  })),
+      once: jest.fn((_event, callback) => callback()),
+      on: jest.fn(),
+      getURL: jest.fn(() => currentUrl),
+      executeJavaScript: jest.fn((script: string) => {
+        if (script.includes('typeof window.api.importContacts')) return Promise.resolve(true)
+        if (script.includes('window.api.getStatus')) return Promise.resolve({ ready: true })
+        return Promise.resolve(true)
+      }),
+    }
+
+    return {
+      loadURL: jest.fn((url: string) => {
+        currentUrl = url
+        return Promise.resolve()
+      }),
+      isDestroyed: jest.fn(() => false),
+      destroy: jest.fn(),
+      webContents,
+      on: jest.fn(),
+    }
+  }),
   Menu: {
     buildFromTemplate: jest.fn(),
     setApplicationMenu: jest.fn(),

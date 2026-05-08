@@ -1,0 +1,65 @@
+.contacts-management__header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
+}
+
+.contacts-management__actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.contacts-management__table-container{
+  width:100%;
+}
+
+.contacts-table--manager{
+  width:100%;
+}
+
+.contacts-empty--manager{
+  padding:24px;
+  border:1px dashed rgba(0,0,0,0.15);
+  border-radius:12px;
+  background:rgba(0,0,0,0.02);
+}
+
+.contacts-table__actions-col{
+  width:220px;
+}
+
+.contacts-actions-row{
+  display:flex;
+  gap:10px;
+}
+
+.status-select{
+  width:140px;
+}
+
+.contact-editor__footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:24px;
+}
+
+.btn-ghost{
+  padding: 8px 16px;
+  border-radius: 8px;
+  border:1px solid rgba(0,0,0,0.15);
+  background:transparent;
+}
+
+.btn-danger-ghost{
+  padding: 8px 16px;
+  border-radius: 8px;
+  border:1px solid rgba(239,68,68,0.5);
+  background:transparent;
+  color:#ef4444;
+}
+

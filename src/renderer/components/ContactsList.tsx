@@ -1,87 +1,51 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { IContact } from '@shared/interfaces'
 import './ContactsList.css'
 
 interface ContactsListProps {
   contacts: IContact[]
-  onImport: (contacts: IContact[]) => void
+  selectedContactIds: string[]
+  onSelectedContactIdsChange: (selectedContactIds: string[]) => void
+  selectionDisabled?: boolean
+  onImport: () => Promise<void>
+  onExport: () => Promise<void>
 }
 
-const ContactsList: React.FC<ContactsListProps> = ({ contacts, onImport }) => {
-  const [isLoading, setIsLoading] = useState(false)
+const ContactsList: React.FC<ContactsListProps> = ({
+  contacts,
+  selectedContactIds,
+  onSelectedContactIdsChange,
+  selectionDisabled = false,
+  onImport,
+  onExport,
+}) => {
+  const selectedIds = new Set(selectedContactIds)
+  const allSelected = contacts.length > 0 && contacts.every((contact) => selectedIds.has(contact.id))
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    setIsLoading(true)
-
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      try {
-        const content = e.target?.result as string
-        const lines = content.split('\n').filter((line) => line.trim())
-
-        const importedContacts: IContact[] = lines
-          .slice(1) // Skip header
-          .map((line, index) => {
-            const [name, phone] = line.split(',')
-            return {
-              id: `contact-${index}`,
-              name: name?.trim() || '',
-              phone: phone?.trim() || '',
-              status: 'pendente' as const,
-            }
-          })
-          .filter((c) => c.name && c.phone)
-
-        onImport(importedContacts)
-      } catch (error) {
-        console.error('Error importing contacts:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    reader.readAsText(file)
+  const handleToggleAll = (checked: boolean): void => {
+    onSelectedContactIdsChange(checked ? contacts.map((contact) => contact.id) : [])
   }
 
-  const handleExport = () => {
-    if (contacts.length === 0) {
-      alert('Nenhum contato para exportar')
+  const handleToggleContact = (contactId: string, checked: boolean): void => {
+    if (checked) {
+      onSelectedContactIdsChange([...selectedContactIds, contactId])
       return
     }
 
-    const csv = [
-      'name,phone,status',
-      ...contacts.map((c) => `"${c.name}","${c.phone}","${c.status || 'pendente'}"`),
-    ].join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `contacts_${new Date().getTime()}.csv`
-    link.click()
-    URL.revokeObjectURL(url)
+    onSelectedContactIdsChange(selectedContactIds.filter((id) => id !== contactId))
   }
 
   return (
     <div className="contacts-list">
       <div className="contacts-header">
-        <h2>Contatos ({contacts.length})</h2>
+        <h2>
+          Contatos ({selectedContactIds.length}/{contacts.length})
+        </h2>
         <div className="contacts-actions">
-          <label className="btn-import">
-            {isLoading ? 'Importando...' : 'Importar CSV'}
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileSelect}
-              disabled={isLoading}
-              style={{ display: 'none' }}
-            />
-          </label>
-          <button className="btn-export" onClick={handleExport} disabled={contacts.length === 0}>
+          <button className="btn-import" onClick={onImport}>
+            Importar CSV
+          </button>
+          <button className="btn-export" onClick={onExport} disabled={contacts.length === 0}>
             Exportar CSV
           </button>
         </div>
@@ -91,12 +55,21 @@ const ContactsList: React.FC<ContactsListProps> = ({ contacts, onImport }) => {
         {contacts.length === 0 ? (
           <div className="contacts-empty">
             <p>Nenhum contato adicionado</p>
-            <small>Importe um arquivo CSV para começar</small>
+            <small>Importe um arquivo CSV para comecar</small>
           </div>
         ) : (
           <table className="contacts-table">
             <thead>
               <tr>
+                <th className="contacts-table__select-col">
+                  <input
+                    type="checkbox"
+                    aria-label="Selecionar todos os contatos"
+                    checked={allSelected}
+                    disabled={selectionDisabled || contacts.length === 0}
+                    onChange={(event) => handleToggleAll(event.target.checked)}
+                  />
+                </th>
                 <th>Nome</th>
                 <th>Telefone</th>
                 <th>Status</th>
@@ -104,11 +77,25 @@ const ContactsList: React.FC<ContactsListProps> = ({ contacts, onImport }) => {
             </thead>
             <tbody>
               {contacts.map((contact) => (
-                <tr key={contact.id} className={`status-${contact.status}`}>
+                <tr
+                  key={contact.id}
+                  className={`row-${contact.status || 'pendente'} ${
+                    selectedIds.has(contact.id) ? 'contacts-table__row--selected' : ''
+                  }`}
+                >
+                  <td className="contacts-table__select-col">
+                    <input
+                      type="checkbox"
+                      aria-label={`Selecionar ${contact.name}`}
+                      checked={selectedIds.has(contact.id)}
+                      disabled={selectionDisabled}
+                      onChange={(event) => handleToggleContact(contact.id, event.target.checked)}
+                    />
+                  </td>
                   <td>{contact.name}</td>
                   <td>{contact.phone}</td>
                   <td>
-                    <span className={`status-badge status-${contact.status}`}>
+                    <span className={`status-badge status-${contact.status || 'pendente'}`}>
                       {contact.status || 'pendente'}
                     </span>
                   </td>

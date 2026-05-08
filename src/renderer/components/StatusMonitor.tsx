@@ -1,40 +1,27 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import './StatusMonitor.css'
 
-interface StatusLog {
+export interface StatusLog {
   id: string
   timestamp: Date
   level: 'info' | 'success' | 'warning' | 'error'
   message: string
 }
 
-const StatusMonitor: React.FC = () => {
-  const [logs, setLogs] = useState<StatusLog[]>([])
+interface StatusMonitorProps {
+  logs: StatusLog[]
+  onClear: () => void
+}
+
+const StatusMonitor: React.FC<StatusMonitorProps> = ({ logs, onClear }) => {
   const [autoScroll, setAutoScroll] = useState(true)
+  const logsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    // Simular logs do IPC ou eventos
-    const listener = (message: string) => {
-      const newLog: StatusLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        level: 'info',
-        message,
-      }
-      setLogs((prev) => [...prev.slice(-99), newLog]) // Manter últimos 100 logs
+    if (autoScroll && logsRef.current) {
+      logsRef.current.scrollTop = logsRef.current.scrollHeight
     }
-
-    // TODO: Conectar ao IPC real
-    // window.electronAPI.on('app:log', listener)
-
-    return () => {
-      // Cleanup
-    }
-  }, [])
-
-  const clearLogs = () => {
-    setLogs([])
-  }
+  }, [autoScroll, logs])
 
   const downloadLogs = () => {
     const logsText = logs
@@ -45,23 +32,9 @@ const StatusMonitor: React.FC = () => {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `logs_${new Date().getTime()}.txt`
+    link.download = `logs_${Date.now()}.txt`
     link.click()
     URL.revokeObjectURL(url)
-  }
-
-  const getLevelColor = (level: string): string => {
-    switch (level) {
-      case 'success':
-        return '#28a745'
-      case 'warning':
-        return '#ffc107'
-      case 'error':
-        return '#dc3545'
-      case 'info':
-      default:
-        return '#667eea'
-    }
   }
 
   const formatTime = (date: Date): string => {
@@ -88,13 +61,13 @@ const StatusMonitor: React.FC = () => {
           <button className="btn-secondary" onClick={downloadLogs} disabled={logs.length === 0}>
             Download
           </button>
-          <button className="btn-secondary" onClick={clearLogs} disabled={logs.length === 0}>
+          <button className="btn-secondary" onClick={onClear} disabled={logs.length === 0}>
             Limpar
           </button>
         </div>
       </div>
 
-      <div className="monitor-logs">
+      <div className="monitor-logs" ref={logsRef}>
         {logs.length === 0 ? (
           <div className="logs-empty">
             <p>Nenhum log para exibir</p>
@@ -103,9 +76,7 @@ const StatusMonitor: React.FC = () => {
           logs.map((log) => (
             <div key={log.id} className={`log-entry log-${log.level}`}>
               <span className="log-time">{formatTime(log.timestamp)}</span>
-              <span className="log-level" style={{ color: getLevelColor(log.level) }}>
-                [{log.level.toUpperCase()}]
-              </span>
+              <span className="log-level">[{log.level.toUpperCase()}]</span>
               <span className="log-message">{log.message}</span>
             </div>
           ))

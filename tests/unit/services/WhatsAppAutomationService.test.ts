@@ -1,3 +1,5 @@
+/// <reference types="jest" />
+
 import { WhatsAppAutomationService } from '../../../src/main/services/WhatsAppAutomationService'
 import { IChromeDriverManager, IContact } from '../../../src/shared/interfaces'
 import { LoggerService } from '../../../src/main/services/LoggerService'
@@ -173,6 +175,23 @@ describe('WhatsAppAutomationService', () => {
       expect(results).toHaveLength(2)
       expect(results[0].success).toBe(false)
       expect(results[1].success).toBe(true)
+    })
+
+    it('should stop sending after cancellation is requested', async () => {
+      const contacts: IContact[] = [
+        { id: '1', name: 'JoÃ£o', phone: '11999999999', status: 'pendente' },
+        { id: '2', name: 'Maria', phone: '21888888888', status: 'pendente' },
+      ]
+
+      jest.spyOn(service, 'sendMessage').mockImplementation(async () => {
+        service.cancelSending()
+      })
+
+      const results = await service.sendMessageToContacts(contacts, 'Hello')
+
+      expect(results).toHaveLength(1)
+      expect(results[0].success).toBe(true)
+      expect(service.wasLastSendCanceled()).toBe(true)
     })
   })
 

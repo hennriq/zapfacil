@@ -29,6 +29,8 @@ export interface IChromeDriverManager {
 export interface IWhatsAppAutomation {
   sendMessage(phone: string, message: string): Promise<void>
   sendMessageToContacts(contacts: IContact[], message: string): Promise<ISendResult[]>
+  cancelSending(): void
+  wasLastSendCanceled(): boolean
   validatePhoneNumber(phone: string): boolean
 }
 

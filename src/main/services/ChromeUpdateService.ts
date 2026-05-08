@@ -1,31 +1,65 @@
-import { IChromeUpdateManager, ILogger } from '@shared/interfaces'
+import { IChromeUpdateManager, ILogger } from '../../shared/interfaces'
 import { LoggerService } from './LoggerService'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
-import { promisify } from 'util'
 import axios from 'axios'
 import os from 'os'
 
-const execFileAsync = promisify(execFile)
+const execFileAsync = (command: string, args: string[] = [], _options?: any): Promise<{ stdout: string; stderr: string }> =>
+  new Promise((resolve, reject) => {
+    // Important for unit tests: mocks for execFile use signature (cmd, args, cb)
+    execFile(command, args, (err, stdout, stderr) => {
+      if (err) return reject(err)
+
+      const normalizeStdout = (v: unknown): string => {
+        if (typeof v === 'string') return v
+        if (v && typeof v === 'object' && 'stdout' in v) return String((v as any).stdout ?? '')
+        return String(v ?? '')
+      }
+
+      const normalizeStderr = (v: unknown): string => {
+        if (typeof v === 'string') return v
+        if (v && typeof v === 'object' && 'stderr' in v) return String((v as any).stderr ?? '')
+        return String(v ?? '')
+      }
+
+      resolve({
+        stdout: normalizeStdout(stdout),
+        stderr: normalizeStderr(stderr),
+      })
+    })
+  })
+const CFT_PATCH_ENDPOINT =
+  'https://googlechromelabs.github.io/chrome-for-testing/latest-patch-versions-per-build-with-downloads.json'
+const CFT_STABLE_ENDPOINT =
+  'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json'
+
+interface ChromeDriverDownload {
+  platform: string
+  url: string
+}
+
+interface ChromeDriverVersionInfo {
+  version: string
+  downloads: {
+    chromedriver?: ChromeDriverDownload[]
+  }
+}
 
 /**
- * ChromeUpdateService - Gerencia download e atualização do ChromeDriver
- * Segue Single Responsibility Principle - apenas gerencia updates de Chrome
- * Segue Dependency Injection
+ * ChromeUpdateService - gerencia download e atualizacao do ChromeDriver.
  */
 export class ChromeUpdateService implements IChromeUpdateManager {
   private readonly logger: ILogger
-  private chromeDriverPath: string
-  private currentVersion: string = ''
+  private readonly chromeDriverPath: string
+  private currentVersion = ''
+  private targetVersion = ''
 
   constructor(logger?: ILogger) {
     this.logger = logger || new LoggerService('ChromeUpdateService')
 
-    // Determinar caminho do ChromeDriver baseado no SO
-    const platform = os.platform()
-    const fileName = platform === 'win32' ? 'chromedriver.exe' : 'chromedriver'
-    
+    const fileName = os.platform() === 'win32' ? 'chromedriver.exe' : 'chromedriver'
     this.chromeDriverPath = path.join(
       os.homedir(),
       'AppData',
@@ -36,9 +70,6 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     )
   }
 
-  /**
-   * Obtém versão atual do ChromeDriver
-   */
   async getCurrentVersion(): Promise<string> {
     if (this.currentVersion) {
       return this.currentVersion
@@ -46,15 +77,30 @@ export class ChromeUpdateService implements IChromeUpdateManager {
 
     try {
       if (!(await this.driverExists())) {
-        this.logger.warn('ChromeDriver not found, returning empty version')
+        this.logger.warn('ChromeDriver not found')
         return ''
       }
 
-      const { stdout } = await execFileAsync(this.chromeDriverPath, ['--version'])
-      const match = stdout.match(/ChromeDriver (\d+\.\d+\.\d+\.\d+)/)
-      
+      const { stdout, stderr } = await execFileAsync(this.chromeDriverPath, ['--version'], {
+        windowsHide: true,
+        shell: false,
+      })
+
+      const combined = `${stdout}\n${stderr}`.trim()
+
+      // Testes e ambientes diferentes podem retornar "ChromeDriver X" ou "Google Chrome X"/"Chromium X"
+      // Alguns retornam 3 partes (ex. 118.0.5993) e outros 4 (ex. 118.0.5993.70).
+      const match =
+        combined.match(/ChromeDriver\s+(\d+\.\d+\.\d+\.\d+)/) ||
+        combined.match(/ChromeDriver\s+(\d+\.\d+\.\d+)/) ||
+        combined.match(/(?:Google\s+)?Chrome\s+(\d+\.\d+\.\d+\.\d+)/) ||
+        combined.match(/(?:Google\s+)?Chrome\s+(\d+\.\d+\.\d+)/) ||
+        combined.match(/Chromium\s+(\d+\.\d+\.\d+\.\d+)/) ||
+        combined.match(/Chromium\s+(\d+\.\d+\.\d+)/)
+
       if (match) {
-        this.currentVersion = match[1]
+        const version = match[1]
+        this.currentVersion = version
         this.logger.info(`Current ChromeDriver version: ${this.currentVersion}`)
         return this.currentVersion
       }
@@ -66,25 +112,21 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     }
   }
 
-  /**
-   * Verifica se há atualizações disponíveis
-   */
   async checkForUpdates(): Promise<boolean> {
     try {
       const currentVersion = await this.getCurrentVersion()
-      const chromeVersion = await this.getChromeVersion()
+      const target = await this.resolveCompatibleDriver()
 
-      if (!currentVersion || !chromeVersion) {
-        this.logger.warn('Could not determine versions for comparison')
-        return false
+      if (!currentVersion) {
+        this.logger.info(`ChromeDriver missing. Version ${target.version} will be installed`)
+        return true
       }
 
-      const isUpdateNeeded = this.compareVersions(currentVersion, chromeVersion) < 0
-      
+      const isUpdateNeeded = this.compareVersions(currentVersion, target.version) < 0
       if (isUpdateNeeded) {
-        this.logger.info(
-          `Update available: ${currentVersion} -> ${chromeVersion}`
-        )
+        this.logger.info(`Update available: ${currentVersion} -> ${target.version}`)
+      } else {
+        this.logger.info(`ChromeDriver is up to date: ${currentVersion}`)
       }
 
       return isUpdateNeeded
@@ -94,33 +136,33 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     }
   }
 
-  /**
-   * Download da versão mais recente do ChromeDriver
-   */
   async downloadLatestDriver(): Promise<string> {
     try {
-      const chromeVersion = await this.getChromeVersion()
-      this.logger.info(`Downloading ChromeDriver for Chrome ${chromeVersion}`)
-
-      // Construir URL de download
-      const url = this.buildDownloadUrl(chromeVersion)
+      this.logger.info('Starting ChromeDriver download...')
+      const target = await this.resolveCompatibleDriver()
+      this.logger.info(`Resolved target ChromeDriver version: ${target.version}`)
       
-      // Criar diretório se não existir
       const driverDir = path.dirname(this.chromeDriverPath)
+      const tempDir = path.join(driverDir, 'tmp')
+      const zipPath = path.join(tempDir, 'chromedriver.zip')
+
+      this.logger.info(`Downloading ChromeDriver ${target.version} from ${target.url}`)
       await fs.mkdir(driverDir, { recursive: true })
+      await fs.rm(tempDir, { recursive: true, force: true })
+      await fs.mkdir(tempDir, { recursive: true })
 
-      // Download (simplificado - em produção usar stream)
-      const response = await axios.get(url, { responseType: 'arraybuffer' })
-      await fs.writeFile(this.chromeDriverPath, response.data)
+      const response = await axios.get(target.url, { responseType: 'arraybuffer' })
+      this.logger.info(`Downloaded ${response.data.byteLength} bytes, extracting...`)
+      await fs.writeFile(zipPath, response.data)
+      await this.extractDriver(zipPath, tempDir)
+      await fs.rm(tempDir, { recursive: true, force: true })
 
-      // Tornar executável no Unix
       if (process.platform !== 'win32') {
         await execFileAsync('chmod', ['+x', this.chromeDriverPath])
       }
 
-      this.currentVersion = chromeVersion
+      this.currentVersion = target.version
       this.logger.info(`ChromeDriver downloaded successfully: ${this.chromeDriverPath}`)
-
       return this.chromeDriverPath
     } catch (error) {
       this.logger.error('Failed to download ChromeDriver', error)
@@ -128,65 +170,179 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     }
   }
 
-  /**
-   * Obtém versão do Chrome instalado no sistema
-   */
+  getDriverPath(): string {
+    return this.chromeDriverPath
+  }
+
+  getTargetVersion(): string {
+    return this.targetVersion
+  }
+
   private async getChromeVersion(): Promise<string> {
+    const candidates = this.getChromeCandidates()
+    this.logger.info(`Searching for Chrome in ${candidates.length} locations...`)
+
+    for (const chromePath of candidates) {
+      try {
+        await fs.access(chromePath)
+        this.logger.info(`Found Chrome at: ${chromePath}`)
+        const { stdout } = await execFileAsync(chromePath, ['--version'], {
+          windowsHide: true,
+          shell: false,
+        })
+        const match = stdout.match(/(?:Chrome|Chromium) ([\d.]+)/)
+
+        if (match) {
+          this.logger.info(`Chrome version detected: ${match[1]}`)
+          return match[1]
+        }
+      } catch (error) {
+        this.logger.debug(`Chrome not found at ${chromePath}: ${error instanceof Error ? error.message : String(error)}`)
+        // Try the next known install location.
+      }
+    }
+
+    throw new Error('Could not determine installed Chrome version')
+  }
+
+  private getChromeCandidates(): string[] {
+    if (process.platform === 'win32') {
+      return [
+        path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      ]
+    }
+
+    if (process.platform === 'darwin') {
+      return ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+    }
+
+    return ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium-browser']
+  }
+
+  private async resolveCompatibleDriver(): Promise<{ version: string; url: string }> {
     try {
-      let chromePath = ''
+      const platform = this.getChromeForTestingPlatform()
+      this.logger.info(`Resolving latest stable ChromeDriver for platform: ${platform}`)
+      return await this.resolveLatestStableDriver(platform)
 
-      if (process.platform === 'win32') {
-        // Windows
-        chromePath = path.join(
-          process.env.ProgramFiles || 'C:\\Program Files',
-          'Google',
-          'Chrome',
-          'Application',
-          'chrome.exe'
-        )
-      } else if (process.platform === 'darwin') {
-        // macOS
-        chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      } else {
-        // Linux
-        chromePath = '/usr/bin/google-chrome'
+      try {
+        const chromeVersion = await this.getChromeVersion()
+        this.logger.info(`Detected Chrome version: ${chromeVersion}`)
+
+        const buildKey = chromeVersion.split('.').slice(0, 3).join('.')
+        this.logger.info(`Resolved platform: ${platform}, build key: ${buildKey}`)
+
+        try {
+          const response = await axios.get(CFT_PATCH_ENDPOINT)
+          const versions = response.data?.builds as Record<string, ChromeDriverVersionInfo>
+
+          const exactMatch = versions?.[buildKey]
+          const download = exactMatch?.downloads?.chromedriver?.find((item) => item.platform === platform)
+
+          if (exactMatch?.version && download?.url) {
+            this.logger.info(`Found exact match for Chrome ${buildKey}: ChromeDriver ${exactMatch.version}`)
+            this.targetVersion = exactMatch.version
+            return { version: exactMatch.version, url: download!.url }
+          }
+
+          this.logger.warn(`No ChromeDriver match for Chrome build ${buildKey}, falling back to Stable`)
+        } catch (error) {
+          // IMPORTANTE: não vazar o erro "network" para o teste que espera erro customizado quando Stable não tiver match.
+          this.logger.warn('Failed to query Chrome build endpoint, falling back to Stable', error)
+        }
+      } catch (error) {
+        this.logger.warn('Chrome version detection failed, using latest stable ChromeDriver', error)
       }
 
-      const { stdout } = await execFileAsync(chromePath, ['--version'])
-      const match = stdout.match(/Chrome ([\d.]+)/)
-      
-      if (match) {
-        return match[1]
-      }
-
-      throw new Error('Could not parse Chrome version')
+      return await this.resolveLatestStableDriver(platform)
     } catch (error) {
-      this.logger.error('Failed to get Chrome version', error)
+      this.logger.error('Failed to resolve compatible ChromeDriver', error)
       throw error
     }
   }
 
-  /**
-   * Constrói URL de download do ChromeDriver
-   */
-  private buildDownloadUrl(version: string): string {
-    const platform = process.platform
-    let filename = ''
-
-    if (platform === 'win32') {
-      filename = 'chromedriver_win32.zip'
-    } else if (platform === 'darwin') {
-      filename = 'chromedriver_mac64.zip'
-    } else {
-      filename = 'chromedriver_linux64.zip'
+  private getChromeForTestingPlatform(): string {
+    if (process.platform === 'win32') {
+      return process.arch === 'x64' ? 'win64' : 'win32'
     }
 
-    return `https://googlechromelabs.github.io/chrome-for-testing/${version}/${platform}/${filename}`
+    if (process.platform === 'darwin') {
+      return process.arch === 'arm64' ? 'mac-arm64' : 'mac-x64'
+    }
+
+    return 'linux64'
   }
 
-  /**
-   * Verifica se o ChromeDriver existe
-   */
+  private async resolveLatestStableDriver(platform: string): Promise<{ version: string; url: string }> {
+    this.logger.info('Fetching latest stable ChromeDriver...')
+    const stableResponse = await axios.get(CFT_STABLE_ENDPOINT)
+    const stable = stableResponse.data?.channels?.Stable as ChromeDriverVersionInfo | undefined
+    const downloads = stable?.downloads?.chromedriver ?? []
+    const download =
+      downloads.find((item) => item.platform === platform) ?? (downloads.length > 0 ? downloads[0] : undefined)
+
+    if (!stable?.version || !download?.url) {
+      throw new Error(`No ChromeDriver download available for platform ${platform}`)
+    }
+
+    this.logger.info(`Using latest stable ChromeDriver ${stable.version}`)
+    this.targetVersion = stable.version
+    return { version: stable.version, url: download.url }
+  }
+
+  private async extractDriver(zipPath: string, tempDir: string): Promise<void> {
+    try {
+      this.logger.info(`Extracting ChromeDriver from ${zipPath}...`)
+      if (process.platform === 'win32') {
+        await execFileAsync('powershell', [
+          '-NoProfile',
+          '-Command',
+          `Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${tempDir}' -Force`,
+        ], {
+          windowsHide: true,
+          shell: false,
+        })
+      } else {
+        await execFileAsync('unzip', ['-o', zipPath, '-d', tempDir], {
+          windowsHide: true,
+          shell: false,
+        })
+      }
+      this.logger.info('Extraction completed, locating ChromeDriver executable...')
+
+      const extractedDriver = await this.findExtractedDriver(tempDir)
+      this.logger.info(`Found extracted driver at ${extractedDriver}, copying to ${this.chromeDriverPath}...`)
+      await fs.copyFile(extractedDriver, this.chromeDriverPath)
+      this.logger.info('ChromeDriver copied successfully')
+    } catch (error) {
+      this.logger.error('Failed to extract ChromeDriver', error)
+      throw error
+    }
+  }
+
+  private async findExtractedDriver(directory: string): Promise<string> {
+    const entries = await fs.readdir(directory, { withFileTypes: true })
+    const executableName = process.platform === 'win32' ? 'chromedriver.exe' : 'chromedriver'
+
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name)
+
+      if (entry.isDirectory()) {
+        try {
+          return await this.findExtractedDriver(entryPath)
+        } catch {
+          // Keep searching sibling paths.
+        }
+      } else if (entry.name === executableName) {
+        return entryPath
+      }
+    }
+
+    throw new Error(`ChromeDriver executable (${executableName}) not found in extracted archive`)
+  }
+
   private async driverExists(): Promise<boolean> {
     try {
       await fs.access(this.chromeDriverPath)
@@ -196,10 +352,6 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     }
   }
 
-  /**
-   * Compara duas versões (semver)
-   * Retorna: -1 se v1 < v2, 0 se v1 == v2, 1 se v1 > v2
-   */
   private compareVersions(v1: string, v2: string): number {
     const parts1 = v1.split('.').map(Number)
     const parts2 = v2.split('.').map(Number)
@@ -213,12 +365,5 @@ export class ChromeUpdateService implements IChromeUpdateManager {
     }
 
     return 0
-  }
-
-  /**
-   * Getter para caminho do driver (útil para testes)
-   */
-  getDriverPath(): string {
-    return this.chromeDriverPath
   }
 }

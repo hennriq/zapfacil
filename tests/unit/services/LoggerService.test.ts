@@ -20,7 +20,8 @@ describe('LoggerService', () => {
     it('should log info messages', () => {
       logger.info('Test message')
       expect(console.log).toHaveBeenCalled()
-      const call = (console.log as jest.Mock).mock.calls[0][0]
+      const calls = (console.log as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('INFO')
       expect(call).toContain('Test message')
       expect(call).toContain('Test-Context')
@@ -30,7 +31,8 @@ describe('LoggerService', () => {
       const testData = { key: 'value' }
       logger.info('Test message', testData)
       expect(console.log).toHaveBeenCalled()
-      const call = (console.log as jest.Mock).mock.calls[0][0]
+      const calls = (console.log as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('key')
     })
   })
@@ -39,7 +41,8 @@ describe('LoggerService', () => {
     it('should log warning messages', () => {
       logger.warn('Warning message')
       expect(console.warn).toHaveBeenCalled()
-      const call = (console.warn as jest.Mock).mock.calls[0][0]
+      const calls = (console.warn as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('WARN')
       expect(call).toContain('Warning message')
     })
@@ -49,7 +52,8 @@ describe('LoggerService', () => {
     it('should log error messages', () => {
       logger.error('Error message')
       expect(console.error).toHaveBeenCalled()
-      const call = (console.error as jest.Mock).mock.calls[0][0]
+      const calls = (console.error as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('ERROR')
       expect(call).toContain('Error message')
     })
@@ -58,7 +62,8 @@ describe('LoggerService', () => {
       const error = new Error('Test error')
       logger.error('Error occurred', error)
       expect(console.error).toHaveBeenCalled()
-      const call = (console.error as jest.Mock).mock.calls[0][0]
+      const calls = (console.error as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('Test error')
     })
 
@@ -79,7 +84,8 @@ describe('LoggerService', () => {
       process.env.DEBUG = 'true'
       logger.debug('Debug message')
       expect(console.debug).toHaveBeenCalled()
-      const call = (console.debug as jest.Mock).mock.calls[0][0]
+      const calls = (console.debug as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toContain('DEBUG')
       expect(call).toContain('Debug message')
     })
@@ -88,7 +94,8 @@ describe('LoggerService', () => {
   describe('timestamp', () => {
     it('should include timestamp in all logs', () => {
       logger.info('Test')
-      const call = (console.log as jest.Mock).mock.calls[0][0]
+      const calls = (console.log as jest.Mock).mock.calls
+      const call = calls[calls.length - 1][0]
       expect(call).toMatch(/\d{4}-\d{2}-\d{2}T/)
     })
   })

@@ -27,13 +27,13 @@ module.exports = {
     },
   },
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
-  globals: {
-    'ts-jest': {
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', {
       tsconfig: {
         esModuleInterop: true,
         allowSyntheticDefaultImports: true,
-        moduleResolution: 'node',
+        moduleResolution: 'bundler',
       },
-    },
+    }],
   },
 }

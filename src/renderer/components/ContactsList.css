@@ -16,6 +16,15 @@
   background-color: #f9f9f9;
 }
 
+.dark .contacts-header {
+  border-bottom: 1px solid #374151;
+  background-color: #111827;
+}
+
+.dark .contacts-header h2 {
+  color: #f9fafb;
+}
+
 .contacts-header h2 {
   margin: 0;
   font-size: 18px;
@@ -41,10 +50,23 @@
   transition: all 0.3s ease;
 }
 
+.dark .btn-import,
+.dark .btn-export {
+  background-color: #0b1220;
+  color: #a5b4fc;
+  border-color: #4f46e5;
+}
+
 .btn-import:hover:not(:disabled),
 .btn-export:hover:not(:disabled) {
   background-color: #667eea;
   color: white;
+}
+
+.dark .btn-import:hover:not(:disabled),
+.dark .btn-export:hover:not(:disabled) {
+  background-color: #4f46e5;
+  color: #ffffff;
 }
 
 .btn-import:disabled,
@@ -52,6 +74,12 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.dark .btn-import:disabled,
+.dark .btn-export:disabled {
+  opacity: 0.45;
+}
+
 
 .contacts-table-container {
   flex: 1;
@@ -64,9 +92,11 @@
   align-items: center;
   justify-content: center;
   height: 100%;
+  padding: 24px;
   color: #999;
   text-align: center;
 }
+
 
 .contacts-empty p {
   margin: 0 0 8px 0;
@@ -90,6 +120,10 @@
   top: 0;
 }
 
+.dark .contacts-table thead {
+  background-color: #0f172a;
+}
+
 .contacts-table th {
   padding: 12px;
   text-align: left;
@@ -98,15 +132,54 @@
   border-bottom: 2px solid #e0e0e0;
 }
 
+.dark .contacts-table th {
+  color: #e5e7eb;
+  border-bottom: 2px solid #374151;
+}
+
 .contacts-table td {
   padding: 12px;
   border-bottom: 1px solid #eee;
   color: #555;
 }
 
+.dark .contacts-table td {
+  border-bottom: 1px solid #1f2937;
+  color: #cbd5e1;
+}
+
+.contacts-table__select-col {
+  width: 44px;
+  text-align: center;
+}
+
+.contacts-table__select-col input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.contacts-table__select-col input:disabled {
+  cursor: not-allowed;
+}
+
+.contacts-table__row--selected {
+  box-shadow: inset 4px 0 0 #667eea;
+}
+
+.dark .contacts-table__row--selected {
+  box-shadow: inset 4px 0 0 #818cf8;
+}
+
 .contacts-table tbody tr:hover {
   background-color: #f9f9f9;
 }
+
+.dark .contacts-table tbody tr:hover {
+  background-color: #0b1220;
+}
+
 
 .status-badge {
   display: inline-block;
@@ -132,17 +205,45 @@
   color: #721c24;
 }
 
-.status-pendente {
+.dark .status-badge.status-pendente {
+  background-color: #4a2d05;
+  color: #fde68a;
+}
+
+.dark .status-badge.status-enviado {
+  background-color: #0f3d22;
+  color: #6ee7b7;
+}
+
+.dark .status-badge.status-erro {
+  background-color: #4c0b12;
+  color: #fca5a5;
+}
+
+.row-pendente {
   background-color: #fffbf0;
 }
 
-.status-enviado {
+.row-enviado {
   background-color: #f0fef0;
 }
 
-.status-erro {
+.row-erro {
   background-color: #fef0f0;
 }
+
+.dark .row-pendente {
+  background-color: #1f2937;
+}
+
+.dark .row-enviado {
+  background-color: #0f2a1f;
+}
+
+.dark .row-erro {
+  background-color: #2a0d16;
+}
+
 
 @media (max-width: 768px) {
   .contacts-header {
@@ -150,6 +251,11 @@
     gap: 12px;
     align-items: flex-start;
   }
+
+  .dark .contacts-header {
+    background-color: #111827;
+  }
+
 
   .contacts-actions {
     width: 100%;

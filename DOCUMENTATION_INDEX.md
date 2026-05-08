@@ -1,6 +1,6 @@
 # 📖 Documentação Completa - ZapFacil
 
-## 📚 10 Documentos Criados
+## 📚 15 Documentos Criados
 
 ### 1. 📍 GETTING_STARTED.md (Você está aqui!)
 **Para**: Novos desenvolvedores  
@@ -155,6 +155,98 @@
 
 ---
 
+### 11. 🚀 PHASES_5_6.md
+**Para**: Implementação de Fase 5-6 (Testes E2E, Build, Release)  
+**Tempo**: 30 minutos  
+**Conteúdo**:
+- 100% cobertura de testes unitários
+- Testes E2E completos
+- Configuração de build e packaging
+- GitHub Actions CI/CD
+- Scripts npm expandidos
+- Workflows automatizados
+- Métricas e monitoramento
+- Checklist de release
+- Troubleshooting
+
+👉 **Leia para entender Fase 5-6 implementation**
+
+---
+
+### 12. 📦 RELEASE_GUIDE.md
+**Para**: Fazer releases automáticas  
+**Tempo**: 20 minutos  
+**Conteúdo**:
+- Processo automático de release
+- Pré-requisitos e setup
+- Bump version e tagging
+- GitHub Actions workflow
+- Timeline de release
+- Release checklist
+- Monitoramento e analytics
+- Troubleshooting
+- Segredos GitHub necessários
+
+👉 **Use quando vai fazer release**
+
+---
+
+### 13. ⚙️ GITHUB_ACTIONS_SETUP.md
+**Para**: Configurar GitHub Actions CI/CD  
+**Tempo**: 15 minutos  
+**Conteúdo**:
+- Configuração de secrets
+- Branch protection rules
+- Workflows inclusos (ci, release, codeql)
+- Como usar workflows
+- Monitorar execução
+- Debugging de workflows
+- Best practices
+- Customização
+- Setup checklist
+
+👉 **Use para configurar automação no GitHub**
+
+---
+
+### 14. 🧪 TESTING_GUIDE.md
+**Para**: Implementar e executar testes  
+**Tempo**: 25 minutos  
+**Conteúdo**:
+- Estrutura completa de testes
+- Unit, Integration, E2E tests
+- Testing utilities e mock factories
+- Coverage thresholds (80-90%)
+- Coverage reports (HTML, LCOV)
+- Pre-commit hooks
+- CI/CD integration
+- Best practices
+- Troubleshooting
+- Scripts npm de teste
+
+👉 **Use para entender e executar testes**
+
+---
+
+### 15. 📦 PHASE_6_ROADMAP.md
+**Para**: Implementar Fase 6 (Build, Packaging, Release)  
+**Tempo**: 30 minutos  
+**Conteúdo**:
+- Build optimization (Vite, Electron)
+- Windows packaging (NSIS, electron-builder)
+- Auto-update server setup
+- Release automation (GitHub Actions)
+- Code signing configuration
+- Update manifest generation
+- Deployment strategies
+- Phase 6 tasks checklist
+- Success criteria
+- Estimated timeline
+
+👉 **Leia para começar Fase 6 (Build & Packaging)**
+
+---
+
 ## 🗺️ Mapa de Leitura Recomendada
 
 ### Cenário 1: Primeira Vez (30 minutos)
@@ -195,6 +287,26 @@
 ```
 1. CHECKLIST.md - Code Review section  (10 min)
 2. ARCHITECTURE.md - Patterns          (10 min)
+```
+
+### Cenário 7: Fazer Release (45 minutos)
+```
+1. PHASES_5_6.md                       (15 min)
+2. RELEASE_GUIDE.md                    (20 min)
+3. GITHUB_ACTIONS_SETUP.md             (10 min)
+```
+
+### Cenário 8: Configurar GitHub Actions (30 minutos)
+```
+1. GITHUB_ACTIONS_SETUP.md             (15 min)
+2. PHASES_5_6.md - CI/CD section       (15 min)
+```
+
+### Cenário 9: Entender Cobertura de Testes (40 minutos)
+```
+1. PHASES_5_6.md - Testes section      (20 min)
+2. CHECKLIST.md - Testing section      (10 min)
+3. API_REFERENCE.md - Testing          (10 min)
 ```
 
 ---

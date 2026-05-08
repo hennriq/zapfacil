@@ -1,4 +1,4 @@
-import { ILogger } from '@shared/interfaces'
+import { ILogger } from '../../shared/interfaces'
 import { LoggerService } from './LoggerService'
 
 /**
