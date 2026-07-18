@@ -20,6 +20,7 @@ const mockBuilder = {
 }
 
 const mockAddArguments = jest.fn()
+const mockSetChromeBinaryPath = jest.fn()
 
 jest.mock('fs', () => ({
   promises: {
@@ -41,6 +42,7 @@ jest.mock('selenium-webdriver', () => ({
 jest.mock('selenium-webdriver/chrome', () => ({
   Options: jest.fn(() => ({
     addArguments: mockAddArguments,
+    setChromeBinaryPath: mockSetChromeBinaryPath,
   })),
   ServiceBuilder: jest.fn((driverPath: string) => ({ driverPath })),
 }))
@@ -96,6 +98,7 @@ describe('ChromeDriverService', () => {
       '--no-default-browser-check'
     )
     expect(mockBuilder.forBrowser).toHaveBeenCalledWith('chrome')
+    expect(mockSetChromeBinaryPath).toHaveBeenCalledWith(expect.stringContaining('ZapFacil'))
     expect(mockBuilder.setChromeOptions).toHaveBeenCalled()
     expect(mockBuilder.setChromeService).toHaveBeenCalled()
     expect(mockBuilder.build).toHaveBeenCalled()

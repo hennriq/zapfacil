@@ -193,6 +193,28 @@ describe('WhatsAppAutomationService', () => {
       expect(results[0].success).toBe(true)
       expect(service.wasLastSendCanceled()).toBe(true)
     })
+
+    it('should cancel sendMessageToContacts immediately during Selenium wait', async () => {
+      const contacts: IContact[] = [
+        { id: '1', name: 'JoÃ£o', phone: '11999999999', status: 'pendente' },
+        { id: '2', name: 'Maria', phone: '21888888888', status: 'pendente' },
+      ]
+
+      const mockButtonPromise = new Promise(() => {})
+      ;(mockChromeDriver.navigateTo as jest.Mock).mockResolvedValue(undefined)
+      ;(mockChromeDriver.findElement as jest.Mock)
+        .mockRejectedValueOnce(new Error('Not found'))
+        .mockReturnValue(mockButtonPromise)
+
+      const resultsPromise = service.sendMessageToContacts(contacts, 'Hello')
+      await new Promise((resolve) => process.nextTick(resolve))
+      service.cancelSending()
+
+      const results = await resultsPromise
+
+      expect(results).toHaveLength(0)
+      expect(service.wasLastSendCanceled()).toBe(true)
+    })
   })
 
   describe('openWhatsAppWeb', () => {
@@ -232,6 +254,19 @@ describe('WhatsAppAutomationService', () => {
       )
 
       await expect(service.waitForQRCodeScan(100)).rejects.toThrow('QR Code scan timeout')
+    }, 5000)
+
+    it('should require login when link device QR is visible', async () => {
+      const qrLink = { isDisplayed: jest.fn().mockResolvedValue(true) }
+      ;(mockChromeDriver.findElement as jest.Mock).mockImplementation((xpath: string) => {
+        if (xpath.includes('link-device-qr-code')) {
+          return Promise.resolve(qrLink)
+        }
+
+        return Promise.reject(new Error('Not found'))
+      })
+
+      await expect(service.waitForQRCodeScan(100)).rejects.toThrow('QR_LOGIN_REQUIRED')
     }, 5000)
   })
 })

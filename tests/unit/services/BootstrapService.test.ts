@@ -125,6 +125,21 @@ describe('BootstrapService', () => {
       expect(service.isReady()).toBe(true)
     })
 
+    it('should require WhatsApp login before sending when QR is visible', async () => {
+      ;(mockWhatsAppAutomation.waitForQRCodeScan as jest.Mock).mockRejectedValue(
+        new Error('QR_LOGIN_REQUIRED')
+      )
+
+      await expect(service.initialize()).rejects.toThrow(
+        'Faça login no WhatsApp Web para continuar o envio'
+      )
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'WhatsApp login required - user must link device before sending'
+      )
+      expect(service.isReady()).toBe(false)
+    })
+
     it('should set isInitialized to true on success', async () => {
       expect(service.isReady()).toBe(false)
 

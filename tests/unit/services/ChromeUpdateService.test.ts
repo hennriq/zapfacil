@@ -12,8 +12,10 @@ jest.mock('fs', () => ({
     access: jest.fn(),
     mkdir: jest.fn(),
     rm: jest.fn(),
+    readFile: jest.fn(),
     writeFile: jest.fn(),
     copyFile: jest.fn(),
+    cp: jest.fn(),
     readdir: jest.fn(),
   },
 }))
@@ -26,10 +28,29 @@ jest.mock('child_process')
 jest.mock('axios')
 
 const chromeDownloadPayload = {
+  builds: {
+    '118.0.5993': {
+      version: '118.0.5993.70',
+      downloads: {
+        chromedriver: [
+          {
+            platform: 'win64',
+            url: 'https://example.com/chromedriver-118.zip',
+          },
+        ],
+      },
+    },
+  },
   channels: {
     Stable: {
       version: '118.0.0000.00',
       downloads: {
+        chrome: [
+          {
+            platform: 'win64',
+            url: 'https://example.com/chrome.zip',
+          },
+        ],
         chromedriver: [
           {
             platform: 'win64',
@@ -51,6 +72,7 @@ describe('ChromeUpdateService', () => {
     logger = new LoggerService('ChromeUpdateService-Test');
     service = new ChromeUpdateService(logger);
     jest.clearAllMocks();
+    ;(fs.readFile as jest.Mock).mockResolvedValue(JSON.stringify({ version: '118.0.5993.70' }))
   })
 
   afterEach(() => {
@@ -128,10 +150,22 @@ describe('ChromeUpdateService', () => {
       expect(hasUpdate).toBe(true);
     })
 
+    it('should return true when ChromeDriver major differs from managed Chrome', async () => {
+      (fs.access as jest.Mock).mockResolvedValue(undefined)
+      ;(execFile as unknown as jest.Mock).mockImplementation((cmd, args, cb) => {
+        cb(null, { stdout: 'ChromeDriver 119.0.0000.00' }, '')
+      })
+      ;(axios.get as jest.Mock).mockResolvedValue({ data: chromeDownloadPayload })
+
+      const hasUpdate = await service.checkForUpdates()
+
+      expect(hasUpdate).toBe(true)
+    })
+
     it('should return false when no update available', async () => {
       (fs.access as jest.Mock).mockResolvedValue(undefined);
       (execFile as unknown as jest.Mock).mockImplementation((cmd, args, cb) => {
-        cb(null, { stdout: 'ChromeDriver 118.0.0000.00' }, '');
+        cb(null, { stdout: 'ChromeDriver 118.0.5993.70' }, '');
       });
       ;(axios.get as jest.Mock).mockResolvedValue({ data: chromeDownloadPayload })
 
@@ -168,14 +202,54 @@ describe('ChromeUpdateService', () => {
   })
 
   describe('resolveCompatibleDriver', () => {
-    it('should resolve the latest stable ChromeDriver without reading installed Chrome', async () => {
+    it('should resolve a ChromeDriver matching the managed Chrome build', async () => {
       (fs.access as jest.Mock).mockResolvedValue(undefined)
+      ;(axios.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          builds: {
+            '118.0.5993': {
+              version: '118.0.5993.70',
+              downloads: {
+                chromedriver: [{ platform: 'win64', url: 'https://example.com/chromedriver-118.zip' }],
+              },
+            },
+          },
+        },
+      })
+
+      const target = await (service as any).resolveCompatibleDriver()
+
+      expect(target).toEqual({
+        version: '118.0.5993.70',
+        url: 'https://example.com/chromedriver-118.zip',
+      })
+      expect(service.getTargetVersion()).toBe('118.0.5993.70')
+      expect(execFile).not.toHaveBeenCalled()
+    })
+
+    it('should not execute managed chrome on Windows when metadata is missing', async () => {
+      (fs.access as jest.Mock).mockResolvedValue(undefined)
+      ;(fs.readFile as jest.Mock).mockRejectedValue(new Error('metadata missing'))
+      ;(axios.get as jest.Mock).mockResolvedValueOnce({ data: chromeDownloadPayload })
+
+      const target = await (service as any).resolveCompatibleDriver()
+
+      expect(target).toEqual({
+        version: '118.0.0000.00',
+        url: 'https://example.com/chromedriver.zip',
+      })
+      expect(execFile).not.toHaveBeenCalled()
+    })
+
+    it('should fall back to Stable when managed Chrome cannot be detected', async () => {
+      (fs.access as jest.Mock).mockRejectedValue(new Error('Chrome not found'))
       ;(axios.get as jest.Mock).mockResolvedValueOnce({
         data: {
           channels: {
             Stable: {
               version: '120.0.0000.00',
               downloads: {
+                chrome: [{ platform: 'win64', url: 'https://example.com/chrome.zip' }],
                 chromedriver: [{ platform: 'win64', url: 'https://example.com/stable.zip' }],
               },
             },
@@ -190,46 +264,55 @@ describe('ChromeUpdateService', () => {
         url: 'https://example.com/stable.zip',
       })
       expect(service.getTargetVersion()).toBe('120.0.0000.00')
-      expect(execFile).not.toHaveBeenCalled()
     })
 
     it('should throw when Stable has no matching download', async () => {
-      (fs.access as jest.Mock).mockResolvedValue(undefined)
+      (fs.access as jest.Mock).mockRejectedValue(new Error('Chrome not found'))
       ;(axios.get as jest.Mock).mockResolvedValueOnce({
         data: {
           channels: {
             Stable: {
               version: '120.0.0000.00',
-              downloads: { chromedriver: [] },
+              downloads: { chrome: [], chromedriver: [] },
             },
           },
         },
       })
 
       await expect((service as any).resolveCompatibleDriver()).rejects.toThrow(
-        'No ChromeDriver download available'
+        'No managed Chrome/ChromeDriver download available'
       )
     })
   })
 
   describe('downloadLatestDriver', () => {
     it('should download, extract and return the managed driver path', async () => {
-      (fs.access as jest.Mock).mockResolvedValue(undefined)
+      (fs.access as jest.Mock).mockRejectedValue(new Error('Chrome not found'))
       ;(fs.mkdir as jest.Mock).mockResolvedValue(undefined)
       ;(fs.rm as jest.Mock).mockResolvedValue(undefined)
       ;(fs.writeFile as jest.Mock).mockResolvedValue(undefined)
       ;(fs.copyFile as jest.Mock).mockResolvedValue(undefined)
-      ;(fs.readdir as jest.Mock).mockResolvedValue([
-        { name: 'chromedriver.exe', isDirectory: () => false },
-      ])
+      ;(fs.cp as jest.Mock).mockResolvedValue(undefined)
+      ;(execFile as unknown as jest.Mock).mockImplementation((cmd, args, cb) => {
+        cb(null, { stdout: '' }, '')
+      })
+      ;(fs.readdir as jest.Mock)
+        .mockResolvedValueOnce([{ name: 'chrome-win64', isDirectory: () => true }])
+        .mockResolvedValueOnce([{ name: 'chrome.exe', isDirectory: () => false }])
+        .mockResolvedValueOnce([{ name: 'chromedriver-win64', isDirectory: () => true }])
+        .mockResolvedValueOnce([{ name: 'chromedriver.exe', isDirectory: () => false }])
       ;(axios.get as jest.Mock)
         .mockResolvedValueOnce({ data: chromeDownloadPayload })
-        .mockResolvedValueOnce({ data: Buffer.from('zip-data') })
+        .mockResolvedValueOnce({ data: Buffer.from('chrome-zip-data') })
+        .mockResolvedValueOnce({ data: Buffer.from('driver-zip-data') })
 
       const driverPath = await service.downloadLatestDriver()
 
       expect(driverPath).toContain('chromedriver')
-      expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('chromedriver.zip'), Buffer.from('zip-data'))
+      expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('chrome.zip'), Buffer.from('chrome-zip-data'))
+      expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('chromedriver.zip'), Buffer.from('driver-zip-data'))
+      expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining('chrome-version.json'), expect.stringContaining('118.0.0000.00'))
+      expect(fs.cp).toHaveBeenCalled()
       expect(fs.copyFile).toHaveBeenCalled()
     })
   })

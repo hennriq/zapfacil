@@ -68,7 +68,14 @@ export class BootstrapService {
       this.logger.info('Waiting for QR Code scan (2 minutes timeout)...')
       try {
         await this.whatsAppAutomation.waitForQRCodeScan(120000)
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (message === 'QR_LOGIN_REQUIRED') {
+          this.isInitialized = false
+          this.logger.warn('WhatsApp login required - user must link device before sending')
+          throw new Error('Faça login no WhatsApp Web para continuar o envio')
+        }
+
         this.logger.warn('QR Code scan timeout - user may need to scan again')
       }
 

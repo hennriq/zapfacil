@@ -18,7 +18,7 @@ export interface IChromeDriverManager {
   start(): Promise<void>
   stop(): Promise<void>
   navigateTo(url: string): Promise<void>
-  findElement(selector: string, timeout?: number): Promise<any>
+  findElement(selector: string, timeout?: number, suppressNotFoundErrors?: boolean): Promise<any>
   executeScript(script: string): Promise<any>
 }
 

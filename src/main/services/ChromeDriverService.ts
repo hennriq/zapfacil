@@ -72,8 +72,12 @@ export class ChromeDriverService implements IChromeDriverManager {
         '--no-default-browser-check'
       )
 
-      const managedDriverPath = new ChromeUpdateService(this.logger).getDriverPath()
+      const chromeUpdater = new ChromeUpdateService(this.logger)
+      const managedDriverPath = chromeUpdater.getDriverPath()
+      const managedChromePath = chromeUpdater.getChromePath()
+      await fs.access(managedChromePath)
       await fs.access(managedDriverPath)
+      options.setChromeBinaryPath(managedChromePath)
 
       const builder = new Builder()
         .forBrowser('chrome')
@@ -123,7 +127,11 @@ export class ChromeDriverService implements IChromeDriverManager {
     }
   }
 
-  async findElement(selector: string, timeout: number = 10000): Promise<any> {
+  async findElement(
+    selector: string,
+    timeout: number = 10000,
+    suppressNotFoundErrors: boolean = true
+  ): Promise<any> {
     if (!this.driver) {
       throw new Error('ChromeDriver not initialized')
     }
@@ -136,7 +144,18 @@ export class ChromeDriverService implements IChromeDriverManager {
       this.logger.debug(`Found element with selector: ${selector}`)
       return element
     } catch (error) {
-      this.logger.error(`Failed to find element with selector: ${selector}`, error)
+      const message = error instanceof Error ? error.message : String(error)
+      const lower = message.toLowerCase()
+      const isNotFound =
+        lower.includes('waiting for element to be located') ||
+        lower.includes('element could not be located') ||
+        lower.includes('timeout')
+
+      if (suppressNotFoundErrors && isNotFound) {
+        this.logger.debug(`Element not found: ${selector} (timeout=${timeout})`)
+      } else {
+        this.logger.error(`Failed to find element with selector: ${selector}`, error)
+      }
       throw error
     }
   }
