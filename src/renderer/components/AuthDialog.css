@@ -1,0 +1,200 @@
+/* AuthDialog Styles */
+
+.auth-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 12px;
+  min-width: 400px;
+}
+
+.dark .auth-dialog {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+}
+
+.auth-header {
+  text-align: center;
+}
+
+.auth-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.dark .auth-header h2 {
+  color: #f9fafb;
+}
+
+.auth-header p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+.dark .auth-header p {
+  color: #d1d5db;
+}
+
+/* QR Code Section */
+.auth-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 20px;
+}
+
+.qr-code-container {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dark .qr-code-container {
+  background: #2d3748;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.qr-code {
+  width: 200px;
+  height: 200px;
+  display: block;
+  border-radius: 4px;
+}
+
+/* Auth Info */
+.auth-info {
+  text-align: center;
+  width: 100%;
+}
+
+.auth-info p {
+  color: #374151;
+  font-size: 14px;
+  margin: 0;
+}
+
+.dark .auth-info p {
+  color: #e5e7eb;
+}
+
+/* Spinner Animation */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+.dark .spinner {
+  border-color: #4b5563;
+  border-top-color: #60a5fa;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error Container */
+.error-container {
+  text-align: center;
+  width: 100%;
+}
+
+.error-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.error-container p {
+  color: #dc2626;
+  margin: 0;
+}
+
+.dark .error-container p {
+  color: #fca5a5;
+}
+
+/* Success Container */
+.success-container {
+  text-align: center;
+  width: 100%;
+}
+
+.success-icon {
+  font-size: 48px;
+  line-height: 1;
+  color: #10b981;
+}
+
+.success-container p {
+  color: #059669;
+  margin: 0;
+}
+
+.dark .success-container p {
+  color: #86efac;
+}
+
+/* Loading Container */
+.loading-container {
+  text-align: center;
+  width: 100%;
+}
+
+/* Auth Actions */
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Auth Footer */
+.auth-footer {
+  text-align: center;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dark .auth-footer {
+  border-top-color: #374151;
+}
+
+.auth-footer p {
+  color: #9ca3af;
+  font-size: 12px;
+  margin: 0;
+}
+
+.dark .auth-footer p {
+  color: #9ca3af;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .auth-dialog {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .qr-code {
+    width: 160px;
+    height: 160px;
+  }
+
+  .auth-header h2 {
+    font-size: 20px;
+  }
+}
